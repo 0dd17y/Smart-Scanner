@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Smart Scan — Web Portal Security Console</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <canvas id="matrix"></canvas>
+
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">
+        <div class="logo">S</div>
+        <div>
+          <h1>SMART<b>SCAN</b></h1>
+          <div class="sub">WEB PORTAL SECURITY CONSOLE</div>
+        </div>
+      </div>
+      <div class="top-right">
+        <nav class="tabs">
+          <button class="tab active" data-pane="scanner">SCANNER</button>
+          <button class="tab" data-pane="siteinfo">SITE INFO</button>
+          <button class="tab" data-pane="checklist">MANUAL CHECKLIST</button>
+        </nav>
+        <div class="theme-wrap">
+          <button id="themeBtn" class="theme-btn" title="Change theme" aria-label="Change theme">
+            <span class="theme-btn-ico">◑</span><span class="theme-btn-label">THEME</span>
+          </button>
+          <div id="themePop" class="theme-pop"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ===================== SCANNER PANE ===================== -->
+    <section id="scannerPane">
+      <div class="panel panel-pad">
+        <div class="control">
+          <div class="field">
+            <label for="url">Target URL</label>
+            <input id="url" class="url-input" type="text" placeholder="https://uat.your-portal.example" autocomplete="off" spellcheck="false" />
+          </div>
+          <button id="startBtn" class="btn-scan" disabled>▶ Start Scan</button>
+          <button id="stopBtn" class="btn-stop" style="display:none">■ Stop Scan</button>
+        </div>
+
+        <div class="row">
+          <div class="field" style="margin:0">
+            <label>Intensity</label>
+            <div class="seg" id="intensity">
+              <button data-v="passive">Passive</button>
+              <button data-v="active" class="active">Active</button>
+              <button data-v="aggressive">Aggressive</button>
+            </div>
+          </div>
+          <label class="check">
+            <input type="checkbox" id="authz" />
+            I am authorized to test this target (e.g. my own UAT environment)
+          </label>
+        </div>
+
+        <div class="adv" id="advOpts">
+          <div class="field">
+            <label>Max brute-force attempts</label>
+            <input id="maxBrute" type="number" value="25" min="1" max="200" />
+          </div>
+          <div class="field">
+            <label>Content-discovery words</label>
+            <input id="maxFuzz" type="number" value="120" min="1" max="1000" />
+          </div>
+          <div class="field">
+            <label>Rate-limit probe requests</label>
+            <input id="dosRequests" type="number" value="30" min="5" max="200" />
+          </div>
+          <div class="field">
+            <label>Max IDOR id-tests</label>
+            <input id="maxIdor" type="number" value="15" min="1" max="100" />
+          </div>
+          <div class="field">
+            <label>Max large-body size (KB)</label>
+            <input id="maxBodyKb" type="number" value="1024" min="64" max="5120" />
+          </div>
+        </div>
+
+        <div class="warn-banner" id="aggWarn" style="display:none">
+          ⚠ Aggressive mode runs ~60 active checks — brute-force, content fuzzing,
+          rate-limit stress, advanced injection (XXE, SSTI, SSRF, NoSQL, blind command
+          injection…), authentication attacks (JWT, spraying, session fixation…), access
+          control / IDOR, infrastructure exposure, and bounded DoS. Several can change
+          state. Only run against authorized UAT targets you can restore.
+        </div>
+      </div>
+
+      <!-- Live dashboard -->
+      <div class="dash" id="dash">
+        <div class="viz panel panel-pad">
+          <div class="ring-wrap">
+            <canvas id="progressRing" width="150" height="150"></canvas>
+            <div class="ring-center">
+              <div class="pct" id="progressPct" data-val="0">0%</div>
+              <div class="lbl">SCAN PROGRESS</div>
+            </div>
+          </div>
+          <div class="radar-box"><canvas id="radar" width="260" height="260"></canvas></div>
+          <div class="stat-row">
+            <div class="stat crit"><div class="n" id="cCrit" data-val="0">0</div><div class="l">Critical</div></div>
+            <div class="stat high"><div class="n" id="cHigh" data-val="0">0</div><div class="l">High</div></div>
+            <div class="stat med"><div class="n" id="cMed" data-val="0">0</div><div class="l">Med</div></div>
+            <div class="stat pass"><div class="n" id="cPass" data-val="0">0</div><div class="l">Pass</div></div>
+          </div>
+        </div>
+
+        <div class="terminal panel">
+          <div class="term-head">
+            <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+            <span class="term-title" id="termTitle">smartscan@console — idle</span>
+          </div>
+          <div class="term-body" id="term"></div>
+        </div>
+
+        <div class="phases" id="phases"></div>
+      </div>
+
+      <!-- Score summary -->
+      <div class="summary panel panel-pad" id="summary">
+        <div class="gauge-box">
+          <canvas id="gauge" width="220" height="130"></canvas>
+          <div class="grade-big" id="gradeBig">–</div>
+          <div class="lbl" style="color:var(--muted);font-size:.65rem;letter-spacing:1.5px">SECURITY GRADE</div>
+        </div>
+        <div>
+          <div class="msg" id="summaryMsg"></div>
+          <div class="actions">
+            <button class="btn-ghost" id="downloadHtml">⬇ Download HTML report</button>
+            <button class="btn-ghost" id="downloadJson">⬇ Download JSON</button>
+            <button class="btn-ghost" id="rescanBtn">↻ New scan</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="findings panel panel-pad hidden" id="findingsWrap">
+        <div class="findings-head">
+          <h3>Findings</h3>
+          <div class="finding-filters" id="findingFilters">
+            <button class="f-chip active" data-sev="critical">Critical <span class="f-chip-n" id="fn-critical">0</span></button>
+            <button class="f-chip active" data-sev="high">High <span class="f-chip-n" id="fn-high">0</span></button>
+            <button class="f-chip active" data-sev="medium">Medium <span class="f-chip-n" id="fn-medium">0</span></button>
+            <button class="f-chip active" data-sev="low">Low <span class="f-chip-n" id="fn-low">0</span></button>
+            <button class="f-chip active" data-sev="info">Info <span class="f-chip-n" id="fn-info">0</span></button>
+            <button class="f-chip f-chip-all" id="fChipAll">All</button>
+          </div>
+        </div>
+        <div id="findings"></div>
+      </div>
+    </section>
+
+    <!-- ===================== SITE INFO PANE ===================== -->
+    <section id="siteinfoPane">
+      <div class="panel panel-pad">
+        <div class="control">
+          <div class="field">
+            <label for="siUrl">Portal / Site URL</label>
+            <input id="siUrl" class="url-input" type="text" placeholder="https://uat.your-portal.example" autocomplete="off" spellcheck="false" />
+          </div>
+          <button id="siGather" class="btn-scan">🛰 Gather Intel</button>
+        </div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:10px">
+          Passive reconnaissance — reads DNS, TLS/certificate, headers, technology and page
+          structure. No attacks are performed.
+        </div>
+      </div>
+      <div id="siLoader" class="si-loader">
+        <div class="si-spin"></div><span>Gathering intelligence…</span>
+      </div>
+      <div id="siResults" class="si-grid"></div>
+    </section>
+
+    <!-- ===================== CHECKLIST PANE ===================== -->
+    <section id="checklistPane">
+      <div class="panel panel-pad">
+        <div class="cl-head">
+          <div>
+            <h3 style="margin:0;letter-spacing:2px;color:var(--cyan)">OWASP MANUAL CHECKLIST</h3>
+            <div style="font-size:.72rem;color:var(--muted)">Items the scanner can't fully automate — track your manual testing here.</div>
+          </div>
+          <div class="cl-progress">Completed <b id="clDone">0</b> / <span id="clTotal">0</span>
+            <button class="btn-ghost" id="clReset" style="margin-left:12px">Reset</button>
+          </div>
+        </div>
+        <div id="checklist"></div>
+      </div>
+    </section>
+
+    <footer class="foot">Smart Scan · authorized security testing only · findings streamed live from your local scanner</footer>
+  </div>
+
+  <!-- Reproduce modal (terminal-style) -->
+  <div id="reproModal" class="repro-modal" aria-hidden="true">
+    <div class="repro-win">
+      <div class="repro-titlebar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="repro-title" id="reproTitle">reproduce</span>
+        <button class="repro-close" id="reproClose" title="Close">✕</button>
+      </div>
+      <div class="repro-body">
+        <div class="repro-grid">
+          <label class="repro-f repro-f-method">Method
+            <select id="reproMethod">
+              <option>GET</option><option>POST</option><option>PUT</option>
+              <option>DELETE</option><option>PATCH</option><option>OPTIONS</option><option>HEAD</option>
+            </select>
+          </label>
+          <label class="repro-f repro-f-url">URL <span class="repro-hint">edit the payload directly here</span>
+            <input id="reproUrl" type="text" spellcheck="false" autocomplete="off" />
+          </label>
+        </div>
+        <label class="repro-f">Headers <span class="repro-hint">one per line — Key: Value</span>
+          <textarea id="reproHeaders" rows="2" spellcheck="false"></textarea>
+        </label>
+        <label class="repro-f" id="reproBodyWrap">Body
+          <textarea id="reproBody" rows="2" spellcheck="false"></textarea>
+        </label>
+        <div class="repro-cmd-head"><span>Command</span>
+          <button id="reproRun" class="repro-run">▶ Run</button>
+        </div>
+        <pre id="reproCmd" class="repro-cmd"></pre>
+        <div class="repro-out-head"><span id="reproOutStatus">Response</span></div>
+        <pre id="reproOut" class="repro-out">Edit the request above and press <b>Run</b>.</pre>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/animations.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/checklist.js"></script>
+  <script src="js/siteinfo.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

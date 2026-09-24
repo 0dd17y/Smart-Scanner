@@ -1,0 +1,22 @@
+# Default/common credential pairs (user:pass) for authorized UAT brute-force testing.
+# Keep this list small and purposeful; extend for your environment.
+admin:admin
+admin:password
+admin:admin123
+admin:123456
+administrator:administrator
+administrator:password
+root:root
+root:toor
+root:password
+test:test
+test:password
+user:user
+user:password
+guest:guest
+demo:demo
+sa:sa
+operator:operator
+support:support
+tomcat:tomcat
+manager:manager

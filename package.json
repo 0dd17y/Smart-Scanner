@@ -1,0 +1,25 @@
+{
+  "name": "smart-scan",
+  "version": "1.0.0",
+  "description": "Smart Scan — an authorized web portal security scanner with an animated SOC-console UI and real, streamed findings.",
+  "type": "commonjs",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "test-target": "node test-target/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "keywords": [
+    "security",
+    "scanner",
+    "owasp",
+    "uat",
+    "appsec"
+  ],
+  "license": "MIT"
+}

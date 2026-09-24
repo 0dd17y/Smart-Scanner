@@ -1,0 +1,18 @@
+# Common usernames for password spraying (authorized UAT only).
+admin
+administrator
+root
+test
+user
+guest
+demo
+operator
+support
+manager
+service
+info
+sysadmin
+webadmin
+api
+dev
+staging
